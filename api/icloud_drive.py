@@ -15,6 +15,3 @@ def upload_file_to_icloud(file_name):
     except ConnectionError:
         print("Connect Error!")
 
-
-if __name__ == '__main__':
-    upload_file_to_icloud("building.jpg")
