@@ -1,32 +1,73 @@
+import pathlib
+import pandas as pd
 import dropbox
-from dropbox import DropboxOAuth2FlowNoRedirect
+from dropbox.exceptions import AuthError
 
-'''
-This example walks through a basic oauth flow using the existing long-lived token type
-Populate your app key and app secret in order to run this locally
-'''
-APP_KEY = "aje0l2yehztzghr"
-APP_SECRET = "4r7hcwzyxbhchlk"
+# ay1kisDmEhsAAAAAAAABJvqHXunA-k8G779aN5iPvLQ
 
-auth_flow = DropboxOAuth2FlowNoRedirect(APP_KEY, APP_SECRET)
 
-authorize_url = auth_flow.start()
-print("1. Go to: " + authorize_url)
-print("2. Click \"Allow\" (you might have to log in first).")
-print("3. Copy the authorization code.")
-auth_code = input("Enter the authorization code here: ").strip()
+DROPBOX_ACCESS_TOKEN = 'sl.BYiihe23NAUZGz1fDjXzDN_3w9R20XtrwCpOO_yXwtWHx8LHN2nAHJ5MqEdW_6iZPdHkR4299yRPbv6fvbClCqtYgcxXpEHHDTNInIoJOK8wMSQ9DYyEWXC6OWG2ImOcJPfZK60BAbFq'
 
-try:
-    oauth_result = auth_flow.finish(auth_code)
-except Exception as e:
-    print('Error: %s' % (e,))
-    exit(1)
 
-with dropbox.Dropbox(oauth2_access_token=oauth_result.access_token) as dbx:
-    dbx.users_get_current_account()
-    print("Successfully set up client!")
+def dropbox_connect():
+    """Create a connection to Dropbox."""
+    try:
+        dbx = dropbox.Dropbox(DROPBOX_ACCESS_TOKEN)
+    except AuthError as e:
+        print('Error connecting to Dropbox with access token: ' + str(e))
+    return dbx
+
+
+def dropbox_list_files(path):
+    """Return a Pandas dataframe of files in a given Dropbox folder path in the Apps directory.
+    """
+
+    dbx = dropbox_connect()
+
+    try:
+        files = dbx.files_list_folder(path).entries
+        files_list = []
+        for file in files:
+            if isinstance(file, dropbox.files.FileMetadata):
+                metadata = {
+                    'name': file.name,
+                    'path_display': file.path_display,
+                    'client_modified': file.client_modified,
+                    'server_modified': file.server_modified
+                }
+                files_list.append(metadata)
+
+        df = pd.DataFrame.from_records(files_list)
+        return df.sort_values(by='server_modified', ascending=False)
+
+    except Exception as e:
+        print('Error getting list of files from Dropbox: ' + str(e))
 
 
 def upload_file_to_dropbox(file_name):
-    print("Upload file to dropbox ")
+    """Upload a file from the local machine to a path in the Dropbox app directory.
 
+    Args:
+        local_path (str): The path to the local file.
+        local_file (str): The name of the local file.
+        dropbox_file_path (str): The path to the file in the Dropbox app directory.
+
+    Example:
+        dropbox_upload_file('.', 'test.csv', '/stuff/test.csv')
+
+    Returns:
+        meta: The Dropbox file metadata.
+    """
+    local_path = '.'
+
+    try:
+        dbx = dropbox_connect()
+
+        local_file_path = pathlib.Path(local_path) / file_name
+
+        with local_file_path.open("rb") as f:
+            meta = dbx.files_upload(f.read(), f"/{file_name}", mode=dropbox.files.WriteMode("overwrite"))
+
+            return meta
+    except Exception as e:
+        print('Error uploading file to Dropbox: ' + str(e))
