@@ -59,5 +59,6 @@ def upload_file_to_google_drive(file_name):
         # for item in items:
         #     print(u'{0} ({1})'.format(item['name'], item['id']))
     except HttpError as error:
+        '''TODO(developer) - Handle errors from drive API.'''
         print(f'An error occurred: {error}')
 
